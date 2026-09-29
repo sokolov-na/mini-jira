@@ -1,8 +1,18 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from mini_jira.config import settings
 
-engine = create_engine(settings.database_url)
+engine = create_async_engine(settings.database_url)
 
-SessionLocal = sessionmaker(engine)
+SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_session() -> AsyncGenerator[AsyncSession]:
+    async with SessionLocal() as session:
+        yield session
