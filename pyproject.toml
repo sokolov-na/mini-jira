@@ -14,7 +14,6 @@ dependencies = [
     "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.15.0",
     "pydantic[email]>=2.13.5",
-    "pyjwt>=2.15.1",
     "sqlalchemy>=2.0.54",
     "uvicorn>=0.53.0",
 ]
@@ -49,4 +48,3 @@ select = [
 [tool.basedpyright]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
-allowedUntypedLibraries = ["jwt"]
