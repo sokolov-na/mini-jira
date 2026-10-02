@@ -8,3 +8,11 @@ class EmailAlreadyExists(Exception):
 
 class UserNotFound(Exception):
     pass
+
+
+class InvalidTokenError(Exception):
+    pass
+
+
+class InvalidCredentials(Exception):
+    pass
