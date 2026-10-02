@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Any, Final, Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt
 
@@ -24,6 +24,7 @@ def _create_token(
         "type": token_type,
         "iat": now,
         "exp": now + lifetime,
+        "jti": str(uuid4()),
     }
     return jwt.encode(
         payload,
@@ -63,6 +64,7 @@ def decode_token(
                     "type",
                     "iat",
                     "exp",
+                    "jti",
                 ],
             },
         )

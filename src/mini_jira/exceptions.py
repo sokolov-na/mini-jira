@@ -12,3 +12,7 @@ class UserNotFound(Exception):
 
 class InvalidTokenError(Exception):
     pass
+
+
+class InvalidCredentials(Exception):
+    pass

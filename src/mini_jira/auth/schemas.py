@@ -1,5 +1,6 @@
 import re
 
+from email_validator.validate_email import validate_email
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -17,6 +18,12 @@ class UserRegister(BaseModel):
         return v.lower()
 
     email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: EmailStr) -> str:
+        return validate_email(str(v)).normalized
+
     password: str = Field(min_length=8)
 
     @field_validator("password")
@@ -27,3 +34,8 @@ class UserRegister(BaseModel):
         if not re.search(r"[0-9]", v):
             raise ValueError("Password must contain a digit")
         return v
+
+
+class UserCredentials(BaseModel):
+    login: str
+    password: str

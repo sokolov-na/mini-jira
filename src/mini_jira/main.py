@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from mini_jira.auth.routes import router as auth_router
 from mini_jira.exceptions import (
     EmailAlreadyExists,
+    InvalidCredentials,
     InvalidTokenError,
     UsernameAlreadyExists,
     UserNotFound,
@@ -63,4 +64,15 @@ async def invalid_token_handler(
     return JSONResponse(
         status_code=HTTPStatus.UNAUTHORIZED,
         content={"detail": "Token is invalid"},
+    )
+
+
+@app.exception_handler(InvalidCredentials)
+async def invalid_credentials_handler(
+    _request: Request,
+    _exc: InvalidCredentials,
+):
+    return JSONResponse(
+        status_code=HTTPStatus.UNAUTHORIZED,
+        content={"detail": "Invalid login or password"},
     )
