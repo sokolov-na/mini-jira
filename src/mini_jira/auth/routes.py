@@ -7,7 +7,7 @@ from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mini_jira.auth.schemas import UserCredentials, UserRegister
+from mini_jira.auth.schemas import UserCredentials
 from mini_jira.auth.service import (
     issue_token_pair,
     revoke_refresh_token,
@@ -18,6 +18,7 @@ from mini_jira.database.connection import get_session
 from mini_jira.database.models import User
 from mini_jira.exceptions import InvalidCredentials, InvalidTokenError
 from mini_jira.users.repository.sqlalchemy import SQLAlchemyUserRepository
+from mini_jira.users.schemas import UserRegister
 from mini_jira.users.use_cases import RegisterUserUseCase
 
 router = APIRouter(prefix="/auth", tags=["auth"])

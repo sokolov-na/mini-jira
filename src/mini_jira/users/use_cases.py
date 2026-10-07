@@ -2,10 +2,9 @@ from uuid import UUID
 
 from pwdlib import PasswordHash
 
-from mini_jira.auth.schemas import UserRegister
 from mini_jira.exceptions import UserNotFound
 from mini_jira.users.repository.protocol import UserRepository
-from mini_jira.users.schemas import UserDTO, UserUpdate
+from mini_jira.users.schemas import UserDTO, UserRegister, UserUpdate
 
 _hasher = PasswordHash.recommended()
 
