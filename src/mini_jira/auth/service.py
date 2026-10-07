@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
-from typing import NamedTuple
+from typing import Annotated, NamedTuple
 from uuid import UUID
 
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,6 +67,27 @@ async def validate_refresh_token(
     ):
         raise InvalidTokenError
     return user_id
+
+
+def validate_access_token(token: str) -> UUID:
+    payload = decode_token(token, expected_type="access")
+    try:
+        user_id = UUID(payload["sub"])
+    except (ValueError, TypeError) as exc:
+        raise InvalidTokenError from exc
+    return user_id
+
+
+security = HTTPBearer()
+
+
+def get_current_user_id(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials,
+        Depends(security),
+    ],
+) -> UUID:
+    return validate_access_token(credentials.credentials)
 
 
 class TokenPair(NamedTuple):
