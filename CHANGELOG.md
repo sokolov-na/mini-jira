@@ -4,9 +4,34 @@ This changelog describes the project's development history in chronological orde
 
 ## [Unreleased]
 
-### Authentication flow
+### User profile operation refactor
 
-Development on `feat/users-auth`, later rebuilt on `feat/users-auth-restore`, extends the user-management foundation with a JWT-based authentication flow:
+- Updated the Users repository contract to operate on domain users for update and delete operations.
+- Implemented SQLAlchemy update and delete statements in the repository.
+- Returned the updated user from `PATCH /users/me`.
+- Used `204 No Content` for `DELETE /users/me`.
+
+## 2026-10-08 — Users application layer
+
+### User management and authentication integration
+
+The Users work was merged through pull requests #7 and #8, extending the existing CRUD and JWT foundation:
+
+- Added a Users domain model and repository protocol.
+- Added a SQLAlchemy-backed Users repository with lookups by ID, email, and username.
+- Added register, login, get, update, and delete use cases.
+- Moved user registration validation into `users.schemas` and removed the duplicate auth schema.
+- Moved login logic into `LoginUserUseCase`.
+- Protected `/users/me` endpoints with JWT access-token authentication.
+- Made auth routes delegate user registration and login to Users use cases.
+- Added username and email normalization for registration and profile updates.
+- Standardized `Users`, `Authentication`, and `System` API tags.
+
+## 2026-10-03 — Authentication flow
+
+### JWT authentication
+
+The initial `feat/users-auth` work was rebuilt on `feat/users-auth-restore` after an earlier merge was reverted, then merged through pull request #6:
 
 - Added JWT configuration and the `PyJWT` dependency.
 - Added access and refresh token creation, validation, expiration checks, token type checks, token identifiers, and hashed refresh-token storage.
@@ -19,8 +44,6 @@ Development on `feat/users-auth`, later rebuilt on `feat/users-auth-restore`, ex
 - Added invalid-credentials and invalid-token HTTP error handling.
 - Moved user creation responsibilities from the users router into the auth module.
 - Added transaction rollback and integrity-error translation at the database session boundary.
-- The initial auth branch was merged into `main` and subsequently reverted while the integration was being corrected.
-- Recreated the complete auth change set on top of the latest `main` in `feat/users-auth-restore` for reintegration.
 
 ## 2026-09-29 — User management
 
