@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
@@ -27,7 +28,7 @@ async def read_user(
     return user
 
 
-@router.delete("/me")
+@router.delete("/me", status_code=HTTPStatus.NO_CONTENT)
 async def delete_user(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -37,15 +38,16 @@ async def delete_user(
     await session.commit()
 
 
-@router.patch("/me")
+@router.patch("/me", response_model=UserDTO)
 async def update_user(
     request: UserUpdate,
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     repository = SQLAlchemyUserRepository(session)
-    await UpdateUserProfileUseCase(repository).execute(
+    user = await UpdateUserProfileUseCase(repository).execute(
         user_id,
         request,
     )
     await session.commit()
+    return user
