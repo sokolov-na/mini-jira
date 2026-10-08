@@ -63,10 +63,36 @@ class GetUserUseCase:
     ) -> None:
         self._repository = repository
 
-    async def execute(self, user_id: UUID) -> UserDTO:
+    async def execute(
+        self,
+        user_id: UUID,
+    ) -> UserDTO:
         user = await self._repository.get_by_id(user_id)
         if user is None:
             raise UserNotFound()
+        return UserDTO.model_validate(user)
+
+
+class UpdateUserProfileUseCase:
+    def __init__(
+        self,
+        repository: UserRepository,
+    ) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        user_id: UUID,
+        data: UserUpdate,
+    ) -> UserDTO:
+        user = await self._repository.get_by_id(user_id)
+        if user is None:
+            raise UserNotFound()
+        if data.username is not None:
+            user.username = data.username
+        if data.email is not None:
+            user.email = data.email
+        await self._repository.update(user)
         return UserDTO.model_validate(user)
 
 
@@ -81,28 +107,4 @@ class DeleteUserUseCase:
         user = await self._repository.get_by_id(user_id)
         if user is None:
             raise UserNotFound()
-        await self._repository.delete(user_id)
-
-
-class UpdateUserProfileUseCase:
-    def __init__(
-        self,
-        repository: UserRepository,
-    ) -> None:
-        self._repository = repository
-
-    async def execute(
-        self,
-        user_id: UUID,
-        data: UserUpdate,
-    ) -> None:
-        user = await self._repository.get_by_id(user_id)
-        if user is None:
-            raise UserNotFound()
-        email = user.email if data.email is None else data.email
-        username = user.username if data.username is None else data.username
-        await self._repository.update(
-            user_id=user_id,
-            username=username,
-            email=email,
-        )
+        await self._repository.delete(user)

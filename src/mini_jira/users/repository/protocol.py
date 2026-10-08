@@ -5,9 +5,18 @@ from mini_jira.users.models import User
 
 
 class UserRepository(Protocol):
-    async def get_by_id(self, user_id: UUID) -> User | None: ...
-    async def get_by_email(self, email: str) -> User | None: ...
-    async def get_by_username(self, username: str) -> User | None: ...
+    async def get_by_id(
+        self,
+        user_id: UUID,
+    ) -> User | None: ...
+    async def get_by_email(
+        self,
+        email: str,
+    ) -> User | None: ...
+    async def get_by_username(
+        self,
+        username: str,
+    ) -> User | None: ...
     async def create(
         self,
         username: str,
@@ -16,8 +25,9 @@ class UserRepository(Protocol):
     ) -> User: ...
     async def update(
         self,
-        user_id: UUID,
-        username: str,
-        email: str,
-    ): ...
-    async def delete(self, user_id: UUID) -> None: ...
+        user: User,
+    ) -> None: ...
+    async def delete(
+        self,
+        user: User,
+    ) -> None: ...

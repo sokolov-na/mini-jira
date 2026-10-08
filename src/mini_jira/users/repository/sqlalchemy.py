@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_jira.database.models import User as UserORM
@@ -12,7 +12,9 @@ class SQLAlchemyUserRepository:
         self._session = session
 
     @staticmethod
-    def _to_domain(user: UserORM) -> User:
+    def _to_domain(
+        user: UserORM,
+    ) -> User:
         return User(
             id=user.id,
             username=user.username,
@@ -20,7 +22,10 @@ class SQLAlchemyUserRepository:
             password_hash=user.password_hash,
         )
 
-    async def get_by_id(self, user_id: UUID) -> User | None:
+    async def get_by_id(
+        self,
+        user_id: UUID,
+    ) -> User | None:
         user = await self._session.get(UserORM, user_id)
         return self._to_domain(user) if user else None
 
@@ -59,19 +64,18 @@ class SQLAlchemyUserRepository:
 
     async def update(
         self,
-        user_id: UUID,
-        username: str,
-        email: str,
-    ):
-        user = await self._session.get(UserORM, user_id)
-        if user is not None:
-            user.username = username
-            user.email = email
+        user: User,
+    ) -> None:
+        await self._session.execute(
+            update(UserORM)
+            .where(UserORM.id == user.id)
+            .values(username=user.username, email=user.email)
+        )
 
     async def delete(
         self,
-        user_id: UUID,
+        user: User,
     ) -> None:
-        user = await self._session.get(UserORM, user_id)
-        if user is not None:
-            await self._session.delete(user)
+        await self._session.execute(
+            delete(UserORM).where(UserORM.id == user.id)
+        )
