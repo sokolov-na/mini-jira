@@ -14,7 +14,7 @@ from mini_jira.users.use_cases import (
     UpdateUserProfileUseCase,
 )
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserDTO)
@@ -24,7 +24,7 @@ async def read_user(
 ):
     repository = SQLAlchemyUserRepository(session)
     user = await GetUserUseCase(repository).execute(user_id)
-    return UserDTO.model_validate(user)
+    return user
 
 
 @router.delete("/me")

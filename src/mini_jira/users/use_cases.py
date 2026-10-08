@@ -1,8 +1,10 @@
 from uuid import UUID
 
+from email_validator import EmailNotValidError, validate_email
 from pwdlib import PasswordHash
 
-from mini_jira.exceptions import UserNotFound
+from mini_jira.auth.schemas import UserCredentials
+from mini_jira.exceptions import InvalidCredentials, UserNotFound
 from mini_jira.users.repository.protocol import UserRepository
 from mini_jira.users.schemas import UserDTO, UserRegister, UserUpdate
 
@@ -23,6 +25,35 @@ class RegisterUserUseCase:
             password_hash=_hasher.hash(data.password),
         )
         return UserDTO.model_validate(user)
+
+
+class LoginUserUseCase:
+    def __init__(
+        self,
+        repository: UserRepository,
+    ) -> None:
+        self._repository = repository
+
+    async def execute(self, credentials: UserCredentials) -> UUID:
+        try:
+            email = validate_email(credentials.login).normalized
+        except EmailNotValidError:
+            user = await self._repository.get_by_username(
+                credentials.login,
+            )
+        else:
+            user = await self._repository.get_by_email(email)
+
+        if user is None:
+            raise InvalidCredentials()
+
+        if not _hasher.verify(
+            credentials.password,
+            user.password_hash,
+        ):
+            raise InvalidCredentials()
+
+        return user.id
 
 
 class GetUserUseCase:
@@ -64,7 +95,7 @@ class UpdateUserProfileUseCase:
         self,
         user_id: UUID,
         data: UserUpdate,
-    ):
+    ) -> None:
         user = await self._repository.get_by_id(user_id)
         if user is None:
             raise UserNotFound()
