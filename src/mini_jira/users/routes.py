@@ -1,53 +1,51 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from pydantic import UUID4
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from mini_jira.auth.service import get_current_user_id
 from mini_jira.database.connection import get_session
-from mini_jira.database.models import User
-from mini_jira.exceptions import UserNotFound
+from mini_jira.users.repository.sqlalchemy import SQLAlchemyUserRepository
 from mini_jira.users.schemas import UserDTO, UserUpdate
+from mini_jira.users.use_cases import (
+    DeleteUserUseCase,
+    GetUserUseCase,
+    UpdateUserProfileUseCase,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/{user_id}", response_model=UserDTO)
+@router.get("/me", response_model=UserDTO)
 async def read_user(
-    user_id: UUID4,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    user = await session.get(User, user_id)
-    if user is None:
-        raise UserNotFound()
+    repository = SQLAlchemyUserRepository(session)
+    user = await GetUserUseCase(repository).execute(user_id)
     return UserDTO.model_validate(user)
 
 
-@router.delete("/{user_id}")
+@router.delete("/me")
 async def delete_user(
-    user_id: UUID4,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    user = await session.get(User, user_id)
-    if user is None:
-        raise UserNotFound()
-    await session.delete(user)
+    repository = SQLAlchemyUserRepository(session)
+    await DeleteUserUseCase(repository).execute(user_id)
     await session.commit()
 
 
-@router.patch("/{user_id}")
+@router.patch("/me")
 async def update_user(
-    user_id: UUID4,
-    data: UserUpdate,
+    request: UserUpdate,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    user = await session.get(User, user_id)
-    if user is None:
-        raise UserNotFound()
-    data_dict = data.model_dump(exclude_unset=True)
-    if data_dict == {}:
-        return
-    for field, value in data_dict.items():
-        setattr(user, field, value)
-
+    repository = SQLAlchemyUserRepository(session)
+    await UpdateUserProfileUseCase(repository).execute(
+        user_id,
+        request,
+    )
     await session.commit()
