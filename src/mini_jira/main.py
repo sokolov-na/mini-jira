@@ -18,7 +18,7 @@ app.include_router(users_router)
 app.include_router(auth_router)
 
 
-@app.get("/health", tags=["system"])
+@app.get("/health", tags=["System"])
 def health():
     return {"status": "ok"}
 
