@@ -29,7 +29,11 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "basedpyright>=1.40.1",
+    "httpx2>=2.13.1",
     "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.16.8",
 ]
 
@@ -53,3 +57,24 @@ select = [
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 allowedUntypedLibraries = ["jwt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: isolated tests without PostgreSQL",
+    "integration: repository and service tests with PostgreSQL",
+    "e2e: API workflows with PostgreSQL",
+    "postgres: requires a dedicated TEST_DATABASE_URL",
+]
+
+[tool.coverage.run]
+source = ["mini_jira"]
+branch = true
+omit = ["tests/*", "alembic/*"]
+
+[tool.coverage.report]
+show_missing = true

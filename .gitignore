@@ -13,3 +13,9 @@ wheels/
 .env
 .env.*
 !.env.example
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+coverage-report.txt
+.pytest_cache/
