@@ -1,9 +1,11 @@
 from http import HTTPStatus
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from mini_jira.auth.routes import router as auth_router
+from mini_jira.config import settings
 from mini_jira.exceptions import (
     EmailAlreadyExists,
     InvalidCredentials,
@@ -14,6 +16,13 @@ from mini_jira.exceptions import (
 from mini_jira.users.routes import router as users_router
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(users_router)
 app.include_router(auth_router)
 

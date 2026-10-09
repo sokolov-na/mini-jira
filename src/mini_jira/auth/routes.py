@@ -11,6 +11,7 @@ from mini_jira.auth.service import (
     validate_refresh_token,
 )
 from mini_jira.auth.utils import set_refresh_token_cookie
+from mini_jira.config import settings
 from mini_jira.database.connection import get_session
 from mini_jira.exceptions import InvalidTokenError
 from mini_jira.users.repository.sqlalchemy import SQLAlchemyUserRepository
@@ -92,4 +93,8 @@ async def logout(
     response.delete_cookie(
         key="refresh_token",
         path="/auth",
+        domain=settings.refresh_cookie_domain,
+        secure=settings.refresh_cookie_secure,
+        httponly=True,
+        samesite=settings.refresh_cookie_samesite,
     )
