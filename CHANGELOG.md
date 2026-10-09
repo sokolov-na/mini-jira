@@ -1,90 +1,52 @@
 # Changelog
 
-This changelog describes the project's development history in chronological order. The repository does not use release tags, so the entries are grouped by major development stages and the branches that introduced them.
+Notable project changes are recorded here using Keep a Changelog categories.
+No official release has been published; current functionality is unreleased.
 
 ## [Unreleased]
 
-### User profile operation refactor
+### Added
 
-- Updated the Users repository contract to operate on domain users for update and delete operations.
-- Implemented SQLAlchemy update and delete statements in the repository.
-- Returned the updated user from `PATCH /users/me`.
-- Used `204 No Content` for `DELETE /users/me`.
+- User registration and login by username or email, with Argon2 password hashing
+  and input validation/normalization.
+- JWT access and refresh tokens with expiration, token-type checks, unique token
+  IDs, hashed refresh-token persistence, rotation, and revocation.
+- Authenticated profile read, username/email update, and account deletion.
+- PostgreSQL persistence with async SQLAlchemy, domain repository/use-case
+  boundaries, and Alembic migrations for users and refresh tokens.
+- Health endpoint, interactive API documentation, and OpenAPI schema.
+- Environment-backed database, JWT, CORS, refresh-cookie, and logging settings
+  with a safe example environment file.
+- Structured stdout logging, per-request UUIDs, `X-Request-ID` response headers,
+  HTTP severity mapping, and meaningful Auth/Users events.
+- Central unexpected-error diagnostics with safe traceback rendering and
+  generic HTTP 500 responses.
+- Isolated logging, JWT, validation, and database-safety tests; PostgreSQL
+  integration/API E2E test infrastructure with Alembic schema setup and
+  transaction isolation. PostgreSQL scenarios await their first real DB run.
+- pytest-cov tooling with branch coverage and missing-line reports, without a
+  minimum coverage gate.
+- Ruff, basedpyright, pre-commit, and uv dependency/lock-file tooling.
 
-## 2026-10-08 — Users application layer
+### Changed
 
-### User management and authentication integration
+- User updates and deletes operate on domain users through the repository layer.
+  Profile updates return the updated profile; deletion returns 204 No Content.
+- Known database uniqueness errors map to 409 domain conflicts. Authentication,
+  missing-user, and validation errors retain their 401, 404, and 422 responses.
+- Logging and CORS wrap the full ASGI application, preserving request IDs and
+  allowed-origin CORS headers on unexpected HTTP 500 responses.
 
-The Users work was merged through pull requests #7 and #8, extending the existing CRUD and JWT foundation:
+### Fixed
 
-- Added a Users domain model and repository protocol.
-- Added a SQLAlchemy-backed Users repository with lookups by ID, email, and username.
-- Added register, login, get, update, and delete use cases.
-- Moved user registration validation into `users.schemas` and removed the duplicate auth schema.
-- Moved login logic into `LoginUserUseCase`.
-- Protected `/users/me` endpoints with JWT access-token authentication.
-- Made auth routes delegate user registration and login to Users use cases.
-- Added username and email normalization for registration and profile updates.
-- Standardized `Users`, `Authentication`, and `System` API tags.
+- A successful login revokes the previous refresh token supplied by its cookie.
+- Refresh-cookie deletion uses the same configurable attributes as installation.
 
-## 2026-10-03 — Authentication flow
+### Security
 
-### JWT authentication
-
-The initial `feat/users-auth` work was rebuilt on `feat/users-auth-restore` after an earlier merge was reverted, then merged through pull request #6:
-
-- Added JWT configuration and the `PyJWT` dependency.
-- Added access and refresh token creation, validation, expiration checks, token type checks, token identifiers, and hashed refresh-token storage.
-- Added the `refresh_tokens` database model and its Alembic migration, including user foreign-key cascading and revocation state.
-- Added user registration under `/auth/register`.
-- Added login by email or username under `/auth/login`.
-- Added refresh-token rotation under `/auth/refresh`.
-- Added refresh-token revocation and cookie cleanup under `/auth/logout`.
-- Added refresh-token cookie handling and normalized registration email addresses.
-- Added invalid-credentials and invalid-token HTTP error handling.
-- Moved user creation responsibilities from the users router into the auth module.
-- Added transaction rollback and integrity-error translation at the database session boundary.
-
-## 2026-09-29 — User management
-
-### User CRUD and password protection
-
-The `feat/users` branch added the first application-level user workflow on top of the database foundation:
-
-- Added user create, read, update, and delete endpoints under `/users`.
-- Added Pydantic schemas for user input, updates, and response DTOs.
-- Added username and password validation rules.
-- Added password hashing with `pwdlib` and Argon2 support.
-- Added PostgreSQL integrity-error translation for duplicate usernames and emails.
-- Added HTTP handlers for duplicate users and missing users.
-- Converted the database layer and request handlers to SQLAlchemy's async engine and sessions.
-
-## 2026-09-22 — Database foundation
-
-### Database integration and migrations
-
-The `feat/database` branch introduced persistent storage and was merged into `main` by pull request #2.
-
-- Added environment-backed application settings with `DATABASE_URL` support.
-- Added SQLAlchemy models and database connection management.
-- Added Alembic configuration and migration infrastructure.
-- Added the initial `users` table migration with UUID primary keys and unique username/email constraints.
-- Added a follow-up migration renaming the user password column to `password_hash`.
-
-## 2026-09-18 — Health endpoint and tooling
-
-### Development baseline
-
-The `feat/health-endpoint` branch was merged into `main` by pull request #1.
-
-- Added the `/health` endpoint returning the service status.
-- Added project development tooling and pre-commit checks.
-- Updated dependency and lock-file configuration for the development setup.
-
-## 2026-09-17 — Project initialization
-
-### Initial project setup
-
-- Initialized the Python project and package structure.
-- Added project metadata, Python version configuration, dependency management, and the initial lock file.
-- Added the initial README and Git ignore configuration.
+- Refresh cookies are HttpOnly and Secure by default. CORS origins must be
+  explicit; wildcard origins are rejected when credentials are supported.
+- Application logs omit request secrets, personal login values, SQL parameters,
+  and potentially sensitive exception messages/local variables.
+- The default 422 registration response can still echo password input. This
+  known issue is recorded by a strict expected-failure test and remains unfixed.

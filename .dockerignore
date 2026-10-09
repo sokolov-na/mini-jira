@@ -20,6 +20,8 @@ venv
 .coverage
 .coverage.*
 htmlcov
+coverage.xml
+coverage-report.txt
 build
 dist
 **/*.egg-info
