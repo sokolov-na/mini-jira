@@ -41,10 +41,14 @@ async def register_user(
 async def login(
     credentials: UserCredentials,
     response: Response,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     repository = SQLAlchemyUserRepository(session)
     user_id = await LoginUserUseCase(repository).execute(credentials)
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token is not None:
+        await revoke_refresh_token(session, refresh_token)
     tokens = await issue_token_pair(session, user_id)
     await session.commit()
     set_refresh_token_cookie(response, tokens.refresh)
