@@ -2,6 +2,7 @@ from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +17,7 @@ from mini_jira.users.use_cases import (
 )
 
 router = APIRouter(prefix="/users", tags=["Users"])
+logger = structlog.get_logger(__name__)
 
 
 @router.get("/me", response_model=UserDTO)
@@ -36,6 +38,7 @@ async def delete_user(
     repository = SQLAlchemyUserRepository(session)
     await DeleteUserUseCase(repository).execute(user_id)
     await session.commit()
+    logger.info("users.profile.deleted", user_id=str(user_id))
 
 
 @router.patch("/me", response_model=UserDTO)
@@ -50,4 +53,5 @@ async def update_user(
         request,
     )
     await session.commit()
+    logger.info("users.profile.updated", user_id=str(user_id))
     return user

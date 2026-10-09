@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +20,7 @@ from mini_jira.users.schemas import UserRegister
 from mini_jira.users.use_cases import LoginUserUseCase, RegisterUserUseCase
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = structlog.get_logger(__name__)
 
 
 @router.post("/register", status_code=HTTPStatus.CREATED)
@@ -32,6 +34,7 @@ async def register_user(
     tokens = await issue_token_pair(session, user.id)
     await session.commit()
     set_refresh_token_cookie(response, tokens.refresh)
+    logger.info("auth.register.succeeded", user_id=str(user.id))
     return {
         "access_token": tokens.access,
         "token_type": "bearer",
@@ -73,6 +76,7 @@ async def refresh_tokens(
     tokens = await issue_token_pair(session, user_id)
     await session.commit()
     set_refresh_token_cookie(response, tokens.refresh)
+    logger.info("auth.refresh.rotated", user_id=str(user_id))
     return {
         "access_token": tokens.access,
         "token_type": "bearer",
@@ -98,3 +102,4 @@ async def logout(
         httponly=True,
         samesite=settings.refresh_cookie_samesite,
     )
+    logger.info("auth.logout.succeeded")

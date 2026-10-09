@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import Annotated, NamedTuple
 from uuid import UUID
 
+import structlog
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -16,6 +17,8 @@ from mini_jira.auth.tokens import (
 )
 from mini_jira.database.models import RefreshToken
 from mini_jira.exceptions import InvalidTokenError
+
+logger = structlog.get_logger(__name__)
 
 
 async def save_refresh_token(
@@ -43,6 +46,9 @@ async def revoke_refresh_token(
     if refresh_token is None:
         return
     refresh_token.revoked = True
+    logger.info(
+        "auth.refresh.revocation_requested", user_id=str(refresh_token.user_id)
+    )
 
 
 async def validate_refresh_token(

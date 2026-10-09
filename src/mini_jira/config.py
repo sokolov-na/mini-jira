@@ -6,11 +6,31 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str
+
     jwt_secret_key: str
+
     cors_origins: list[str] = []
+
     refresh_cookie_secure: bool = True
-    refresh_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    refresh_cookie_samesite: Literal[
+        "lax",
+        "strict",
+        "none",
+    ] = "lax"
     refresh_cookie_domain: str | None = None
+
+    log_level: Literal[
+        "DEBUG",
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "CRITICAL",
+    ] = "INFO"
+    log_format: Literal[
+        "json",
+        "console",
+    ] = "console"
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @field_validator("cors_origins")
