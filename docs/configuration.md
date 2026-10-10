@@ -48,6 +48,14 @@ artifacts while preserving `.env.example`. Docker ignore rules apply to an
 Test database configuration is separate and is not read from `.env`.
 See [testing](testing.md).
 
+Docker Compose uses a separate `.env.docker` based on
+[.env.docker.example](../.env.docker.example). `POSTGRES_USER` and `POSTGRES_DB`
+default to `mini_jira`; `POSTGRES_PASSWORD` is required and must be URL-safe
+(prefer a random hexadecimal value). Compose supplies the API database URL
+with host `db`, overriding the local `DATABASE_URL`. Do not add these Docker-only
+variables to the application's `.env`; Settings rejects unknown dotenv keys.
+See [Docker commands](../README.md#docker) for the explicit migration workflow.
+
 ## Password changes and reset delivery
 
 An authenticated `PATCH /auth/password/update` returns an access token and

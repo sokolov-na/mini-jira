@@ -50,3 +50,11 @@ dist
 **/.env.*
 !**/.env.example
 !.env.example
+tests
+docs
+CHANGELOG.md
+.pre-commit-config.yaml
+.python-version
+compose.yaml
+**/junit*.xml
+**/test-results

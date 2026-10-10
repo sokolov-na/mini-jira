@@ -55,6 +55,40 @@ uv run uvicorn mini_jira.main:app --reload
 The API listens on `http://127.0.0.1:8000` by default. Interactive API docs
 are available at `/docs`, with the schema at `/openapi.json`.
 
+## Docker
+
+Run these commands from `api` with Docker and Compose available. Copy
+[.env.docker.example](.env.docker.example) to `.env.docker`, replace all secret
+placeholders, and configure a verified Resend sender and trusted frontend URL.
+Use a random hexadecimal PostgreSQL password, and keep the database name and
+username to letters, digits and underscores: Compose constructs the internal
+`DATABASE_URL` using these values and host `db`. The local `.env` URL is not used.
+Keep Docker variables in `.env.docker`, separate from the application `.env`.
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+docker compose --env-file .env.docker config --quiet
+docker compose --env-file .env.docker build api
+docker compose --env-file .env.docker up -d --wait db
+docker compose --env-file .env.docker run --rm --no-deps api alembic upgrade head
+docker compose --env-file .env.docker up -d api
+docker compose --env-file .env.docker logs -f api
+docker compose --env-file .env.docker down
+```
+
+Migrations are explicit; API startup never runs Alembic. Review and back up data
+before upgrading an existing volume. PostgreSQL 18 persists data in a named
+volume mounted at `/var/lib/postgresql`; its port is not published. API is bound
+to `127.0.0.1:8000`. `down` retains database data; do not add `-v`.
+Changing initialization credentials does not change users/passwords in an
+already initialized database volume.
+
+For local HTTP, set `REFRESH_COOKIE_SECURE=false` in `.env.docker` and use
+`lax` or `strict` SameSite. Public HTTPS requires Secure cookies. Set explicit
+CORS origins when using a browser frontend. Images contain the installed
+package, email template and migrations, without local env files or dev tools.
+Do not share rendered Compose configuration: it contains environment secrets.
+
 ## API endpoints
 
 | Method | Path | Description | Authentication |
