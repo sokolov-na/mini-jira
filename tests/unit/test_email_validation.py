@@ -85,7 +85,7 @@ def test_email_variants_agree_with_deliverable_domain(
             == normalized
         )
         assert (
-            schemas.UserUpdate.model_validate({"email": value}).email
+            schemas.UserProfileUpdate.model_validate({"email": value}).email
             == normalized
         )
         assert isinstance(value, str)

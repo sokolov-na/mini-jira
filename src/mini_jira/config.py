@@ -1,6 +1,6 @@
 from typing import Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import EmailStr, Field, HttpUrl, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     database_url: str
 
     jwt_secret_key: str = Field(min_length=32)
+
+    resend_api_key: str
+    resend_from_email: EmailStr
+    password_reset_frontend_url: HttpUrl
+    password_reset_email_subject: str = Field(
+        default="Mini Jira — Password Reset", min_length=1
+    )
 
     cors_origins: list[str] = []
 
@@ -33,6 +40,26 @@ class Settings(BaseSettings):
     ] = "console"
 
     model_config = SettingsConfigDict(env_file=".env")
+
+    @field_validator("password_reset_frontend_url")
+    @classmethod
+    def validate_reset_frontend_url(cls, url: HttpUrl) -> HttpUrl:
+        if (
+            url.username is not None
+            or url.password is not None
+            or url.query is not None
+            or url.fragment is not None
+            or (
+                url.scheme != "https"
+                and url.host not in {"localhost", "127.0.0.1", "[::1]"}
+            )
+        ):
+            raise PydanticCustomError(
+                "password_reset_url_invalid",
+                "Password reset URL requires HTTPS outside localhost "
+                "and must not contain credentials, query or fragment",
+            )
+        return url
 
     @field_validator("cors_origins")
     @classmethod

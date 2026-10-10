@@ -7,30 +7,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
-from mini_jira.auth.routes import router as auth_router
+from mini_jira.auth.routes import auth
 from mini_jira.config import settings
 from mini_jira.exceptions import (
     EmailAlreadyExists,
     InvalidCredentials,
+    InvalidPassword,
     InvalidTokenError,
     UsernameAlreadyExists,
     UserNotFound,
 )
 from mini_jira.logging.config import configure_logging
 from mini_jira.logging.middleware import RequestLoggingMiddleware
-from mini_jira.users.routes import router as users_router
+from mini_jira.users.routes import users
 
 configure_logging()
 
 logger = structlog.get_logger(__name__)
 
 api = FastAPI()
-api.include_router(users_router)
-api.include_router(auth_router)
+api.include_router(users)
+api.include_router(auth)
 
 
-@api.get("/health", tags=["System"])
-def health():
+@api.get("/health", tags=["System"], response_model=dict[str, str])
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
@@ -38,7 +39,7 @@ def health():
 async def username_exists_handler(
     _request: Request,
     _exc: UsernameAlreadyExists,
-):
+) -> JSONResponse:
     logger.warning("users.operation.rejected", reason="username_conflict")
     return JSONResponse(
         status_code=HTTPStatus.CONFLICT,
@@ -50,7 +51,7 @@ async def username_exists_handler(
 async def email_exists_handler(
     _request: Request,
     _exc: EmailAlreadyExists,
-):
+) -> JSONResponse:
     logger.warning("users.operation.rejected", reason="email_conflict")
     return JSONResponse(
         status_code=HTTPStatus.CONFLICT,
@@ -59,10 +60,10 @@ async def email_exists_handler(
 
 
 @api.exception_handler(UserNotFound)
-async def user_not_found(
+async def user_not_found_handler(
     _request: Request,
     _exc: UserNotFound,
-):
+) -> JSONResponse:
     logger.warning("users.operation.rejected", reason="user_not_found")
     return JSONResponse(
         status_code=HTTPStatus.NOT_FOUND,
@@ -74,7 +75,7 @@ async def user_not_found(
 async def invalid_token_handler(
     _request: Request,
     _exc: InvalidTokenError,
-):
+) -> JSONResponse:
     logger.warning("auth.token.rejected", reason="invalid_or_missing_token")
     return JSONResponse(
         status_code=HTTPStatus.UNAUTHORIZED,
@@ -86,10 +87,21 @@ async def invalid_token_handler(
 async def invalid_credentials_handler(
     _request: Request,
     _exc: InvalidCredentials,
-):
+) -> JSONResponse:
     return JSONResponse(
         status_code=HTTPStatus.UNAUTHORIZED,
         content={"detail": "Invalid login or password"},
+    )
+
+
+@api.exception_handler(InvalidPassword)
+async def invalid_password_handler(
+    _request: Request,
+    _exc: InvalidPassword,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=HTTPStatus.BAD_REQUEST,
+        content={"detail": "Invalid password"},
     )
 
 
@@ -129,7 +141,7 @@ async def unhandled_exception_handler(
 
 @api.exception_handler(RequestValidationError)
 async def validation_exception_handler(
-    request: Request,
+    _request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
     errors: list[dict[str, object]] = []

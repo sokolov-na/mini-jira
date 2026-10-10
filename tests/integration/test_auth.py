@@ -10,7 +10,7 @@ from mini_jira.auth.service import (
     revoke_refresh_token,
     validate_refresh_token,
 )
-from mini_jira.auth.tokens import hash_refresh_token
+from mini_jira.auth.tokens import hash_token
 from mini_jira.database.models import RefreshToken
 from mini_jira.exceptions import InvalidTokenError
 from mini_jira.users.repository.sqlalchemy import SQLAlchemyUserRepository
@@ -36,7 +36,7 @@ async def test_refresh_service_checks_database_state(
     assert await validate_refresh_token(db_session, tokens.refresh) == user.id
     record = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(tokens.refresh)
+            RefreshToken.token_hash == hash_token(tokens.refresh)
         )
     )
     assert record

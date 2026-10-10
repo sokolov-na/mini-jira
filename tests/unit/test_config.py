@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from mini_jira.config import Settings
+from mini_jira.config import Settings, settings
 
 pytestmark = pytest.mark.unit
 
@@ -35,6 +35,9 @@ def test_settings_custom_errors_have_stable_codes(
         Settings(
             database_url="postgresql+psycopg://unused@127.0.0.1/unused_test",
             jwt_secret_key="test-only-key-never-use-in-production",
+            resend_api_key="test-only-no-network",
+            resend_from_email=settings.resend_from_email,
+            password_reset_frontend_url=settings.password_reset_frontend_url,
             cors_origins=["https://private-origin.example/*"]
             if case == "cors"
             else [],

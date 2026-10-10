@@ -4,18 +4,37 @@ import structlog
 from pwdlib import PasswordHash
 from pydantic import ValidationError
 
-from mini_jira.exceptions import InvalidCredentials, UserNotFound
+from mini_jira.exceptions import (
+    InvalidCredentials,
+    InvalidPassword,
+    InvalidTokenError,
+    UserNotFound,
+)
+from mini_jira.users.models import User
 from mini_jira.users.repository.protocol import UserRepository
 from mini_jira.users.schemas import (
     UserCredentials,
     UserDTO,
+    UserPasswordReset,
+    UserPasswordResetConfirm,
+    UserPasswordUpdate,
+    UserProfileUpdate,
     UserRegister,
-    UserUpdate,
     normalize_email,
 )
 
 _hasher = PasswordHash.recommended()
 logger = structlog.get_logger(__name__)
+
+
+async def _find_user_by_login(
+    repository: UserRepository, login: str
+) -> User | None:
+    try:
+        email = normalize_email(login)
+    except ValidationError:
+        return await repository.get_by_username(login, for_update=True)
+    return await repository.get_by_email(email, for_update=True)
 
 
 class RegisterUserUseCase:
@@ -42,14 +61,7 @@ class LoginUserUseCase:
         self._repository = repository
 
     async def execute(self, credentials: UserCredentials) -> UUID:
-        try:
-            email = normalize_email(credentials.login)
-        except ValidationError:
-            user = await self._repository.get_by_username(
-                credentials.login,
-            )
-        else:
-            user = await self._repository.get_by_email(email)
+        user = await _find_user_by_login(self._repository, credentials.login)
 
         if user is None:
             logger.warning("auth.login.failed", reason="user_not_found")
@@ -93,17 +105,87 @@ class UpdateUserProfileUseCase:
     async def execute(
         self,
         user_id: UUID,
-        data: UserUpdate,
+        data: UserProfileUpdate,
     ) -> UserDTO:
-        user = await self._repository.get_by_id(user_id)
+        user = await self._repository.get_by_id(user_id, for_update=True)
         if user is None:
             raise UserNotFound()
         if data.username is not None:
             user.username = data.username
         if data.email is not None:
             user.email = data.email
-        await self._repository.update(user)
+        await self._repository.update_profile(user)
         return UserDTO.model_validate(user)
+
+
+class UpdateUserPasswordUseCase:
+    def __init__(
+        self,
+        repository: UserRepository,
+    ) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        user_id: UUID,
+        data: UserPasswordUpdate,
+    ) -> None:
+        user = await self._repository.get_by_id(user_id, for_update=True)
+        if user is None:
+            raise UserNotFound()
+        if not _hasher.verify(
+            data.current_password,
+            user.password_hash,
+        ):
+            logger.warning(
+                "auth.password_update.failed", reason="invalid_password"
+            )
+            raise InvalidPassword()
+        await self._repository.update_password(
+            user.id, _hasher.hash(data.new_password)
+        )
+
+
+class ResetUserPasswordUseCase:
+    def __init__(
+        self,
+        repository: UserRepository,
+    ) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        credentials: UserPasswordReset,
+    ) -> UserDTO:
+        user = await _find_user_by_login(self._repository, credentials.login)
+
+        if user is None:
+            logger.warning(
+                "auth.password_reset.failed", reason="user_not_found"
+            )
+            raise UserNotFound()
+
+        return UserDTO.model_validate(user)
+
+
+class ResetUserPasswordConfirmUseCase:
+    def __init__(
+        self,
+        repository: UserRepository,
+    ) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        user_id: UUID,
+        data: UserPasswordResetConfirm,
+    ) -> None:
+        user = await self._repository.get_by_id(user_id, for_update=True)
+        if user is None:
+            raise InvalidTokenError()
+        await self._repository.update_password(
+            user.id, _hasher.hash(data.new_password)
+        )
 
 
 class DeleteUserUseCase:

@@ -43,7 +43,7 @@ async def test_login_normalizes_email_without_dns(
         UserCredentials(login=login, password="password")
     )
     assert result == user.id
-    repository.get_by_email.assert_awaited_once_with(email)
+    repository.get_by_email.assert_awaited_once_with(email, for_update=True)
     repository.get_by_username.assert_not_awaited()
     resolver.resolve.assert_not_called()
 
@@ -58,7 +58,7 @@ async def test_non_email_login_keeps_username_fallback(login: str) -> None:
         await LoginUserUseCase(cast(UserRepository, repository)).execute(
             UserCredentials(login=login, password="password")
         )
-    repository.get_by_username.assert_awaited_once_with(login)
+    repository.get_by_username.assert_awaited_once_with(login, for_update=True)
     repository.get_by_email.assert_not_awaited()
 
 
@@ -69,5 +69,7 @@ async def test_unknown_valid_email_does_not_fall_back_to_username() -> None:
         await LoginUserUseCase(cast(UserRepository, repository)).execute(
             UserCredentials(login="missing@example.org", password="password")
         )
-    repository.get_by_email.assert_awaited_once_with("missing@example.org")
+    repository.get_by_email.assert_awaited_once_with(
+        "missing@example.org", for_update=True
+    )
     repository.get_by_username.assert_not_awaited()

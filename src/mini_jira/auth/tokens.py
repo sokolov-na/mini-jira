@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Any, Final, Literal
@@ -11,6 +12,7 @@ from mini_jira.exceptions import InvalidTokenError
 ALGORITHM: Final = "HS256"
 ACCESS_TOKEN_LIFETIME: Final = timedelta(minutes=15)
 REFRESH_TOKEN_LIFETIME: Final = timedelta(days=7)
+PASSWORD_RESET_TOKEN_LIFETIME: Final = timedelta(minutes=10)
 
 
 def _create_token(
@@ -75,5 +77,9 @@ def decode_token(
     return payload
 
 
-def hash_refresh_token(token: str) -> str:
+def generate_password_reset_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
     return sha256(token.encode("utf-8")).hexdigest()

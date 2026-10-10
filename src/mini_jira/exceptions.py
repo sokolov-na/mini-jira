@@ -16,3 +16,7 @@ class InvalidTokenError(Exception):
 
 class InvalidCredentials(Exception):
     """The supplied login credentials could not be authenticated."""
+
+
+class InvalidPassword(Exception):
+    """The supplied current password does not match."""

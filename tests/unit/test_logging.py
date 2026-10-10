@@ -35,8 +35,8 @@ from mini_jira.users.routes import delete_user, update_user
 from mini_jira.users.schemas import (
     UserCredentials,
     UserDTO,
+    UserProfileUpdate,
     UserRegister,
-    UserUpdate,
 )
 from mini_jira.users.use_cases import LoginUserUseCase
 
@@ -466,7 +466,7 @@ def test_business_success_requires_commit(
         elif operation == "logout":
             pending = logout(request, Response(), session)
         elif operation == "update":
-            pending = update_user(UserUpdate(), user_id, session)
+            pending = update_user(UserProfileUpdate(), user_id, session)
         else:
             pending = delete_user(user_id, session)
         if commit_fails:

@@ -57,6 +57,20 @@ class UserRegister(BaseModel):
     password: Password
 
 
-class UserUpdate(BaseModel):
+class UserProfileUpdate(BaseModel):
     username: Username | None = None
     email: EmailStr | None = None
+
+
+class UserPasswordUpdate(BaseModel):
+    current_password: str
+    new_password: Password
+
+
+class UserPasswordReset(BaseModel):
+    login: str
+
+
+class UserPasswordResetConfirm(BaseModel):
+    password_reset_token: str
+    new_password: Password

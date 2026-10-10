@@ -5,20 +5,41 @@ from uuid import UUID
 import structlog
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_jira.auth.tokens import (
+    PASSWORD_RESET_TOKEN_LIFETIME,
     REFRESH_TOKEN_LIFETIME,
     create_access_token,
     create_refresh_token,
     decode_token,
-    hash_refresh_token,
+    generate_password_reset_token,
+    hash_token,
 )
-from mini_jira.database.models import RefreshToken
-from mini_jira.exceptions import InvalidTokenError
+from mini_jira.database.models import PasswordResetToken, RefreshToken, User
+from mini_jira.exceptions import InvalidTokenError, UserNotFound
+from mini_jira.users.repository.sqlalchemy import SQLAlchemyUserRepository
+from mini_jira.users.schemas import (
+    UserPasswordReset,
+    UserPasswordResetConfirm,
+    UserPasswordUpdate,
+)
+from mini_jira.users.use_cases import (
+    ResetUserPasswordConfirmUseCase,
+    ResetUserPasswordUseCase,
+    UpdateUserPasswordUseCase,
+)
 
 logger = structlog.get_logger(__name__)
+
+
+async def lock_user(session: AsyncSession, user_id: UUID) -> None:
+    locked_id = await session.scalar(
+        select(User.id).where(User.id == user_id).with_for_update()
+    )
+    if locked_id is None:
+        raise InvalidTokenError()
 
 
 async def save_refresh_token(
@@ -28,7 +49,7 @@ async def save_refresh_token(
 ) -> None:
     refresh_token = RefreshToken(
         user_id=user_id,
-        token_hash=hash_refresh_token(token),
+        token_hash=hash_token(token),
         expires_at=datetime.now(UTC) + REFRESH_TOKEN_LIFETIME,
     )
     session.add(refresh_token)
@@ -38,16 +59,29 @@ async def revoke_refresh_token(
     session: AsyncSession,
     token: str,
 ) -> None:
-    refresh_token: RefreshToken | None = await session.scalar(
-        select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(token),
-        )
+    user_id = await session.scalar(
+        update(RefreshToken)
+        .where(RefreshToken.token_hash == hash_token(token))
+        .values(revoked=True)
+        .returning(RefreshToken.user_id)
     )
-    if refresh_token is None:
+    if user_id is None:
         return
-    refresh_token.revoked = True
-    logger.info(
-        "auth.refresh.revocation_requested", user_id=str(refresh_token.user_id)
+    logger.info("auth.refresh.revocation_requested", user_id=str(user_id))
+
+
+async def revoke_all_refresh_tokens(
+    session: AsyncSession,
+    user_id: UUID,
+) -> None:
+    await lock_user(session, user_id)
+    await session.execute(
+        update(RefreshToken)
+        .where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked.is_(False),
+        )
+        .values(revoked=True)
     )
 
 
@@ -60,9 +94,12 @@ async def validate_refresh_token(
         user_id = UUID(payload["sub"])
     except (ValueError, TypeError) as exc:
         raise InvalidTokenError from exc
+    await lock_user(session, user_id)
     refresh_token = await session.scalar(
-        select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(token),
+        select(RefreshToken)
+        .execution_options(populate_existing=True)
+        .where(
+            RefreshToken.token_hash == hash_token(token),
         )
     )
     if (
@@ -105,6 +142,7 @@ async def issue_token_pair(
     session: AsyncSession,
     user_id: UUID,
 ) -> TokenPair:
+    await lock_user(session, user_id)
     refresh_token = create_refresh_token(user_id)
     access_token = create_access_token(user_id)
     await save_refresh_token(
@@ -116,3 +154,99 @@ async def issue_token_pair(
         refresh=refresh_token,
         access=access_token,
     )
+
+
+async def save_password_reset_token(
+    session: AsyncSession,
+    user_id: UUID,
+    token: str,
+) -> None:
+    await lock_user(session, user_id)
+    password_reset_token = PasswordResetToken(
+        user_id=user_id,
+        token_hash=hash_token(token),
+        expires_at=datetime.now(UTC) + PASSWORD_RESET_TOKEN_LIFETIME,
+    )
+    session.add(password_reset_token)
+
+
+async def invalidate_password_reset_tokens(
+    session: AsyncSession,
+    user_id: UUID,
+) -> None:
+    await lock_user(session, user_id)
+    await session.execute(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user_id,
+        )
+        .values(consumed=True)
+    )
+
+
+async def consume_password_reset_token(
+    session: AsyncSession,
+    token: str,
+) -> UUID:
+    token_hash = hash_token(token)
+    user_id = await session.scalar(
+        select(PasswordResetToken.user_id).where(
+            PasswordResetToken.token_hash == token_hash
+        )
+    )
+    if user_id is None:
+        raise InvalidTokenError()
+    await lock_user(session, user_id)
+    consumed_user_id = await session.scalar(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.user_id == user_id,
+            PasswordResetToken.consumed.is_(False),
+            PasswordResetToken.expires_at > datetime.now(UTC),
+        )
+        .values(consumed=True)
+        .returning(PasswordResetToken.user_id)
+    )
+    if consumed_user_id is None:
+        raise InvalidTokenError()
+    return consumed_user_id
+
+
+async def change_password(
+    session: AsyncSession, user_id: UUID, data: UserPasswordUpdate
+) -> TokenPair:
+    await UpdateUserPasswordUseCase(SQLAlchemyUserRepository(session)).execute(
+        user_id, data
+    )
+    await invalidate_password_reset_tokens(session, user_id)
+    await revoke_all_refresh_tokens(session, user_id)
+    return await issue_token_pair(session, user_id)
+
+
+async def prepare_password_reset(
+    session: AsyncSession, data: UserPasswordReset
+) -> tuple[str, str] | None:
+    try:
+        user = await ResetUserPasswordUseCase(
+            SQLAlchemyUserRepository(session)
+        ).execute(data)
+    except UserNotFound:
+        return None
+    token = generate_password_reset_token()
+    await invalidate_password_reset_tokens(session, user.id)
+    await save_password_reset_token(session, user.id, token)
+    return user.email, token
+
+
+async def complete_password_reset(
+    session: AsyncSession, data: UserPasswordResetConfirm
+) -> None:
+    user_id = await consume_password_reset_token(
+        session, data.password_reset_token
+    )
+    await ResetUserPasswordConfirmUseCase(
+        SQLAlchemyUserRepository(session)
+    ).execute(user_id, data)
+    await invalidate_password_reset_tokens(session, user_id)
+    await revoke_all_refresh_tokens(session, user_id)

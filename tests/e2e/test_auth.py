@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_jira.auth.service import validate_access_token
-from mini_jira.auth.tokens import hash_refresh_token
+from mini_jira.auth.tokens import hash_token
 from mini_jira.config import settings
 from mini_jira.database.models import RefreshToken, User
 from tests.factories import (
@@ -46,7 +46,7 @@ async def test_registration_persists_and_sets_safe_cookie(
     assert cookie["domain"] == (settings.refresh_cookie_domain or "")
     token = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(cookie.value)
+            RefreshToken.token_hash == hash_token(cookie.value)
         )
     )
     assert token is not None
@@ -121,7 +121,7 @@ async def test_login_revokes_previous_cookie(
     assert client.cookies.get("refresh_token") != user.refresh
     old = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(user.refresh)
+            RefreshToken.token_hash == hash_token(user.refresh)
         )
     )
     assert old is not None and old.revoked
@@ -184,7 +184,7 @@ async def test_refresh_rotation_and_replay(
     assert new and new != user.refresh
     old = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(user.refresh)
+            RefreshToken.token_hash == hash_token(user.refresh)
         )
     )
     assert old is not None and old.revoked
@@ -224,7 +224,7 @@ async def test_invalid_refresh_is_rejected(
     token = user.refresh
     record = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(token)
+            RefreshToken.token_hash == hash_token(token)
         )
     )
     assert record is not None
@@ -265,7 +265,7 @@ async def test_logout_revokes_and_clears_cookie(
     assert not client.cookies.get("refresh_token")
     old = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(user.refresh)
+            RefreshToken.token_hash == hash_token(user.refresh)
         )
     )
     assert old is not None and old.revoked
@@ -320,7 +320,7 @@ async def test_failed_rotation_preserves_previous_refresh(
     assert "set-cookie" not in failed.headers
     old = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(second.refresh)
+            RefreshToken.token_hash == hash_token(second.refresh)
         )
     )
     assert old is not None and not old.revoked

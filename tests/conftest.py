@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 import dns.resolver
 import pytest
+import resend
 import structlog
 
 pytest_plugins = ["tests.fixtures.database"]
@@ -28,6 +29,10 @@ def pytest_asyncio_loop_factories() -> dict[
 os.environ.update(
     DATABASE_URL="postgresql+psycopg://invalid:invalid@127.0.0.1:1/unused_test",
     JWT_SECRET_KEY="test-only-key-never-use-in-production",
+    RESEND_API_KEY="test-only-no-network",
+    RESEND_FROM_EMAIL="noreply@example.org",
+    PASSWORD_RESET_FRONTEND_URL="https://frontend.example.com",
+    PASSWORD_RESET_EMAIL_SUBJECT="Mini Jira — Password Reset",
     CORS_ORIGINS='["https://frontend.example.com"]',
     REFRESH_COOKIE_SECURE="true",
     REFRESH_COOKIE_SAMESITE="lax",
@@ -51,6 +56,12 @@ def uncached_test_loggers() -> None:
 
     configure_logging()
     structlog.configure(cache_logger_on_first_use=False)
+
+
+@pytest.fixture(autouse=True)
+def disable_email_delivery(monkeypatch: pytest.MonkeyPatch) -> None:
+    sender = Mock(side_effect=AssertionError("Unexpected email delivery"))
+    monkeypatch.setattr(resend.Emails, "send_async", sender)
 
 
 @pytest.fixture(autouse=True)

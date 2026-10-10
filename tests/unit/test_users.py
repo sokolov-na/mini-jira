@@ -6,7 +6,11 @@ from pydantic import ValidationError
 
 from mini_jira.auth.tokens import create_access_token
 from mini_jira.main import app
-from mini_jira.users.schemas import UserCredentials, UserRegister, UserUpdate
+from mini_jira.users.schemas import (
+    UserCredentials,
+    UserProfileUpdate,
+    UserRegister,
+)
 from tests.factories import registration_data
 
 pytestmark = pytest.mark.unit
@@ -34,17 +38,19 @@ def test_registration_validators_reject_invalid_input(
 def test_profile_normalization_and_optional_fields() -> None:
     user = UserRegister(**(registration_data() | {"username": "Mixed-Case"}))
     assert user.username == "mixed-case"
-    update = UserUpdate(username="Changed-Name", email="new@EXAMPLE.ORG")
+    update = UserProfileUpdate(
+        username="Changed-Name", email="new@EXAMPLE.ORG"
+    )
     assert update.username == "changed-name"
     assert str(update.email) == "new@example.org"
-    optional = UserUpdate(username=None, email=None)
+    optional = UserProfileUpdate(username=None, email=None)
     assert optional.username is None and optional.email is None
 
 
 @pytest.mark.parametrize("username", ["-leading", "trailing-", "bad_name"])
 def test_profile_rejects_invalid_username(username: str) -> None:
     with pytest.raises(ValidationError) as raised:
-        UserUpdate(username=username)
+        UserProfileUpdate(username=username)
     error = raised.value.errors(include_input=False)[0]
     assert error["type"] == "username_invalid"
     assert not error["msg"].startswith("Value error,")
@@ -94,9 +100,9 @@ def test_registration_custom_errors_are_safe(
     assert all(value not in response.text for value in payload.values())
 
 
-@pytest.mark.parametrize("model", [UserRegister, UserUpdate])
+@pytest.mark.parametrize("model", [UserRegister, UserProfileUpdate])
 def test_email_schemas_reject_invalid_addresses(
-    model: type[UserRegister] | type[UserUpdate],
+    model: type[UserRegister] | type[UserProfileUpdate],
 ) -> None:
     payload = registration_data() | {"email": "private-user@"}
     with pytest.raises(ValidationError) as raised:
@@ -164,9 +170,9 @@ def test_credentials_reject_short_passwords(password: str) -> None:
         UserCredentials(login="test-user", password=password)
 
 
-@pytest.mark.parametrize("model", [UserRegister, UserUpdate])
+@pytest.mark.parametrize("model", [UserRegister, UserProfileUpdate])
 def test_username_length_boundary(
-    model: type[UserRegister] | type[UserUpdate],
+    model: type[UserRegister] | type[UserProfileUpdate],
 ) -> None:
     assert (
         model(**(registration_data() | {"username": "U" * 32})).username
