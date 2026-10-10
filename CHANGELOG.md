@@ -12,8 +12,7 @@ No official release has been published; current functionality is unreleased.
 - JWT access and refresh tokens with expiration, token-type checks, unique token
   IDs, hashed refresh-token persistence, rotation, and revocation.
 - Authenticated profile read, username/email update, and account deletion.
-- PostgreSQL persistence with async SQLAlchemy, domain repository/use-case
-  boundaries, and Alembic migrations for users and refresh tokens.
+- PostgreSQL persistence with async SQLAlchemy and Alembic migrations.
 - Health endpoint, interactive API documentation, and OpenAPI schema.
 - Environment-backed database, JWT, CORS, refresh-cookie, and logging settings
   with a safe example environment file.
@@ -23,30 +22,35 @@ No official release has been published; current functionality is unreleased.
   generic HTTP 500 responses.
 - Isolated logging, JWT, validation, and database-safety tests; PostgreSQL
   integration/API E2E test infrastructure with Alembic schema setup and
-  transaction isolation. PostgreSQL scenarios await their first real DB run.
+  transaction isolation and migration safety checks.
 - pytest-cov tooling with branch coverage and missing-line reports, without a
   minimum coverage gate.
 - Ruff, basedpyright, pre-commit, and uv dependency/lock-file tooling.
 
 ### Changed
 
-- User updates and deletes operate on domain users through the repository layer.
-  Profile updates return the updated profile; deletion returns 204 No Content.
-- Known database uniqueness errors map to 409 domain conflicts. Authentication,
-  missing-user, and validation errors retain their 401, 404, and 422 responses.
-- Logging and CORS wrap the full ASGI application, preserving request IDs and
-  allowed-origin CORS headers on unexpected HTTP 500 responses.
+- Passwords require at least eight characters, without mandatory uppercase
+  letters or digits. Registration and profile updates enforce usernames of
+  3–32 characters.
+- Registration, profile updates and email login share normalization without
+  DNS checks or automatic lowercasing of the ordinary email local part.
 
 ### Fixed
 
 - A successful login revokes the previous refresh token supplied by its cookie.
 - Refresh-cookie deletion uses the same configurable attributes as installation.
+- Request IDs and allowed-origin CORS headers are preserved on unexpected 500
+  responses.
+- Database username/email length limits match ORM constraints, with a guarded
+  migration that rejects oversized existing values instead of truncating them.
 
 ### Security
 
 - Refresh cookies are HttpOnly and Secure by default. CORS origins must be
   explicit; wildcard origins are rejected when credentials are supported.
 - Application logs omit request secrets, personal login values, SQL parameters,
-  and potentially sensitive exception messages/local variables.
-- The default 422 registration response can still echo password input. This
-  known issue is recorded by a strict expected-failure test and remains unfixed.
+  and potentially sensitive exception messages/local variables in application
+  diagnostics. External component logs require separate review.
+- Validation responses expose only `type`, `loc` and `msg`, with a stable
+  `email_invalid` code and fixed message for invalid email values.
+- JWT signing secrets must contain at least 32 characters.

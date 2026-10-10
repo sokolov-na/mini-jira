@@ -8,8 +8,8 @@ Never commit secrets or use example credentials for a public instance.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | Required | PostgreSQL SQLAlchemy URL using `postgresql+psycopg` |
-| `JWT_SECRET_KEY` | Required | Secret used to sign and verify HS256 JWTs |
+| `DATABASE_URL` | Required | PostgreSQL SQLAlchemy URL; use `postgresql+psycopg` for API and Alembic |
+| `JWT_SECRET_KEY` | Required | HS256 signing secret, at least 32 characters; use a randomly generated value |
 | `CORS_ORIGINS` | `[]` | JSON array of exact permitted browser origins |
 | `REFRESH_COOKIE_SECURE` | `true` | Restrict refresh cookie to HTTPS |
 | `REFRESH_COOKIE_SAMESITE` | `lax` | `lax`, `strict`, or `none` |
@@ -19,8 +19,9 @@ Never commit secrets or use example credentials for a public instance.
 
 ## CORS and cookies
 
-CORS origins include the scheme and port where needed, with no path or trailing
-slash. Wildcards are rejected. An empty allowlist intentionally disables browser
+CORS origins must match the browser Origin exactly: scheme, host and port where
+needed, without a path or trailing slash. Settings reject wildcards but do not
+validate origin syntax. An empty allowlist intentionally disables browser
 cross-origin access and does not prevent direct API clients from using the API.
 Credentials are enabled for allowed origins. `X-Request-ID` is exposed to
 browser clients, including on handled and unhandled error responses.

@@ -42,6 +42,8 @@ See [configuration](docs/configuration.md) for all variables.
 
 ## Run locally
 
+Before upgrading an existing database, read [migration safety](docs/migrations.md).
+
 ```powershell
 uv sync --group dev
 uv run alembic upgrade head
@@ -64,24 +66,28 @@ are available at `/docs`, with the schema at `/openapi.json`.
 | PATCH | `/users/me` | Update own username/email | Bearer access token |
 | DELETE | `/users/me` | Delete own account; returns 204 | Bearer access token |
 
+Usernames accept 3–32 Latin letters, digits and separating hyphens and are
+lowercased. Passwords require at least eight characters, without mandatory
+uppercase letters or digits. Email validation and normalization use EmailStr
+without DNS checks; ordinary local-part case is preserved. Validation errors
+return only `type`, `loc` and `msg`; invalid email uses `email_invalid`.
+
 ## Tests
 
 ```powershell
 uv run pytest -m unit
-uv run pytest -m integration
-uv run pytest -m e2e
 uv run pytest -ra
-uv run pytest --cov=mini_jira --cov-branch --cov-report=term-missing -ra
 ```
 
 Integration and E2E tests require `TEST_DATABASE_URL` pointing to a dedicated
 PostgreSQL database ending in `_test`. Without it, these tests are explicitly
-skipped. They have not yet been verified against real PostgreSQL.
-See [testing](docs/testing.md) for setup, isolation, and known limitations.
+skipped. See [testing](docs/testing.md) for database setup, category and coverage
+commands, isolation, and limitations.
 
 ## Documentation
 
 - [Configuration](docs/configuration.md)
 - [Testing](docs/testing.md)
+- [Migrations](docs/migrations.md)
 - [Logging](docs/logging.md)
 - [Changelog](CHANGELOG.md)

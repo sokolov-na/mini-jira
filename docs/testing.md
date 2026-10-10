@@ -11,59 +11,65 @@ uv run pytest -m postgres -ra
 uv run pytest --cov=mini_jira --cov-branch --cov-report=term-missing -ra
 ```
 
-## Test levels and fixtures
+Coverage measures production code, including branches, excluding tests and
+migrations. There is no minimum percentage gate; use missing lines to find
+meaningful gaps.
 
-`tests/unit` contains isolated logging/ASGI checks, JWT security, input validation,
-and database safety checks. No PostgreSQL is required.
-`tests/integration` covers real repositories and services.
-`tests/e2e` exercises Auth/Users workflows through an async ASGI client.
-Both database categories carry the `postgres` marker.
+## Levels and fixtures
 
-Root `tests/conftest.py` supplies safe application settings without reading local
-`.env`, resets test logging configuration, and replaces external email DNS
-resolution. Shared data and JWT factories live in `tests/factories.py`.
-`tests/fixtures/database.py` owns database setup and sessions; specialized async
-client and registration fixtures are in `tests/e2e/conftest.py`.
+- `tests/unit`: isolated validation, authentication, logging and safety checks;
+  no PostgreSQL required.
+- `tests/integration`: repositories, services and migrations against PostgreSQL.
+- `tests/e2e`: Auth/Users workflows through an ASGI client and PostgreSQL.
 
-## PostgreSQL setup
+Database tests also carry the `postgres` marker. Root `tests/conftest.py` supplies
+isolated settings without reading `.env` and resets logging. Shared factories
+are in `tests/factories.py`, database fixtures in `tests/fixtures/database.py`,
+and HTTP client/registration fixtures in `tests/e2e/conftest.py`.
 
-Provision a dedicated database and test role. The role needs CREATE permission
-on that database. Do not reuse a production or development database/role.
+## Safe PostgreSQL setup
+
+Use a dedicated database and test role, never a development or production
+connection. The role needs permission to create schemas and run migrations.
+An administrator can provision them in `psql` after checking that neither name
+already exists:
+
+```sql
+CREATE ROLE mini_jira_test LOGIN
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+\password mini_jira_test
+CREATE DATABASE mini_jira_test OWNER mini_jira_test;
+```
+
+Database ownership supplies the required privileges. Enter the test password
+interactively; do not commit it. For an existing test role, use
+`\password mini_jira_test` to change its password. URL-encode special characters
+when constructing the connection URL.
 
 ```powershell
 $env:TEST_DATABASE_URL = "postgresql+psycopg://mini_jira_test:replace-with-test-password@localhost:5432/mini_jira_test"
 uv run pytest -m postgres -ra
+Remove-Item Env:TEST_DATABASE_URL
 ```
 
-`TEST_DATABASE_URL` is read only from the process environment. The guard requires
-`postgresql+psycopg`, explicit host/user, and a database name ending in `_test`.
-URL query options are restricted to TLS settings so they cannot override the
-guarded database, host, user, or search path. Missing configuration produces
-explicit skips; an unsafe URL or unreachable configured database fails the run.
+`TEST_DATABASE_URL` comes only from the process environment, not `.env`.
+The guard requires `postgresql+psycopg`, an explicit host/user and a database name
+ending in `_test`. Only supported TLS query options are permitted. This naming
+check is a safeguard, not proof that the database is disposable: verify the
+actual connection before running tests. Missing configuration skips database
+tests; an unsafe URL or unreachable configured database fails the run.
 
-The fixtures upgrade a unique temporary schema to Alembic `head`, with a private
-search path. Each test uses an outer transaction and savepoints, allowing real
-application commits and rollbacks while test data is rolled back at teardown.
-The schema is dropped at session teardown. Only generated test schemas are
-removed; the database itself is not created or dropped by the test suite.
+Fixtures migrate a unique temporary schema to `head` with a private search path.
+Repository/API tests use an outer transaction and savepoints so application
+commits and rollbacks do not persist test data. Migration tests use separate
+schemas per case to allow committed DDL. Teardown removes only generated test
+schemas; it does not drop the database.
 
-## Coverage and limitations
+## Limitations
 
-pytest-cov measures `mini_jira` production code, including branches. Tests,
-migrations, and generated reports are outside the measured source. There is no
-minimum percentage gate. Use missing lines to identify meaningful gaps rather
-than adding tests solely to increase the percentage.
-
-The current PostgreSQL integration/E2E suite has **not been run against real
-PostgreSQL**, because no dedicated `TEST_DATABASE_URL` has been configured.
-Passing isolated tests does not establish correctness of persisted registration,
-refresh rotation/revocation, profile updates, or transaction rollback.
-
-The per-test connection does not support concurrent HTTP transactions within one
-DB test. API E2E tests use ASGITransport, not a real network server. DNS is replaced
-for deterministic email validation; this does not verify real DNS availability.
-
-A known security defect is tracked with `xfail(strict=True)`: FastAPI's default
-registration validation response can echo the supplied password in the 422
-`input` field. This is **not fixed**. An unexpected pass after a production fix
-requires removing the marker. Production behavior is not modified by tests.
+- A database test shares one connection and cannot run concurrent HTTP
+  transactions. Logging concurrency tests are isolated from PostgreSQL.
+- E2E tests use ASGITransport, not a network server.
+- Email DNS resolution is replaced or prohibited for deterministic tests.
+- On Windows, the asyncio fixture uses SelectorEventLoop because Psycopg async
+  connections do not support ProactorEventLoop.
