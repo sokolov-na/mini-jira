@@ -1,13 +1,18 @@
 from uuid import UUID
 
 import structlog
-from email_validator import EmailNotValidError, validate_email
 from pwdlib import PasswordHash
+from pydantic import ValidationError
 
-from mini_jira.auth.schemas import UserCredentials
 from mini_jira.exceptions import InvalidCredentials, UserNotFound
 from mini_jira.users.repository.protocol import UserRepository
-from mini_jira.users.schemas import UserDTO, UserRegister, UserUpdate
+from mini_jira.users.schemas import (
+    UserCredentials,
+    UserDTO,
+    UserRegister,
+    UserUpdate,
+    normalize_email,
+)
 
 _hasher = PasswordHash.recommended()
 logger = structlog.get_logger(__name__)
@@ -38,8 +43,8 @@ class LoginUserUseCase:
 
     async def execute(self, credentials: UserCredentials) -> UUID:
         try:
-            email = validate_email(credentials.login).normalized
-        except EmailNotValidError:
+            email = normalize_email(credentials.login)
+        except ValidationError:
             user = await self._repository.get_by_username(
                 credentials.login,
             )

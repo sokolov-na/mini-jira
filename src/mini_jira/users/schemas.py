@@ -1,40 +1,16 @@
 import re
+from typing import Annotated
 from uuid import UUID
 
-from email_validator.validate_email import validate_email
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-
-
-class UserRegister(BaseModel):
-    username: str = Field(min_length=3)
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v: str) -> str:
-        if not re.match(r"^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$", v):
-            raise ValueError(
-                "Username must contain only Latin letters, digits, and hyphens"
-                " (hyphen cannot be at start or end)"
-            )
-        return v.lower()
-
-    email: EmailStr
-
-    @field_validator("email")
-    @classmethod
-    def normalize_email(cls, v: EmailStr) -> str:
-        return validate_email(str(v)).normalized
-
-    password: str = Field(min_length=8)
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain an uppercase letter")
-        if not re.search(r"[0-9]", v):
-            raise ValueError("Password must contain a digit")
-        return v
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    TypeAdapter,
+)
+from pydantic_core import PydanticCustomError
 
 
 class UserDTO(BaseModel):
@@ -44,27 +20,43 @@ class UserDTO(BaseModel):
     email: EmailStr
 
 
+def validate_username(username: str) -> str:
+    if not re.fullmatch(r"^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$", username):
+        raise PydanticCustomError(
+            "username_invalid",
+            "Username must contain only Latin letters, digits, and hyphens"
+            " (hyphen cannot be at start or end)",
+        )
+    return username.lower()
+
+
+_email_adapter = TypeAdapter[str](EmailStr)
+
+
+def normalize_email(email: str) -> str:
+    return _email_adapter.validate_python(email)
+
+
+Username = Annotated[
+    str,
+    Field(min_length=3, max_length=32),
+    AfterValidator(validate_username),
+]
+
+Password = Annotated[str, Field(min_length=8)]
+
+
+class UserCredentials(BaseModel):
+    login: str
+    password: Password
+
+
+class UserRegister(BaseModel):
+    username: Username
+    email: EmailStr
+    password: Password
+
+
 class UserUpdate(BaseModel):
-    username: str | None = None
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v: str | None) -> str | None:
-        if v is not None:
-            if not re.match(r"^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$", v):
-                raise ValueError(
-                    "Username must contain only "
-                    "Latin letters, digits, and hyphens "
-                    "(hyphen cannot be at start or end)"
-                )
-            return v.lower()
-        return None
-
+    username: Username | None = None
     email: EmailStr | None = None
-
-    @field_validator("email")
-    @classmethod
-    def normalize_email(cls, v: EmailStr | None) -> str | None:
-        if v is not None:
-            return validate_email(str(v)).normalized
-        return None

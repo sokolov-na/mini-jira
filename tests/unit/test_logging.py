@@ -18,7 +18,6 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from mini_jira.auth.routes import logout, refresh_tokens, register_user
-from mini_jira.auth.schemas import UserCredentials
 from mini_jira.auth.service import TokenPair
 from mini_jira.config import settings
 from mini_jira.database.connection import get_session
@@ -33,7 +32,12 @@ from mini_jira.logging.config import configure_logging
 from mini_jira.logging.middleware import RequestLoggingMiddleware
 from mini_jira.main import api, app
 from mini_jira.users.routes import delete_user, update_user
-from mini_jira.users.schemas import UserDTO, UserRegister, UserUpdate
+from mini_jira.users.schemas import (
+    UserCredentials,
+    UserDTO,
+    UserRegister,
+    UserUpdate,
+)
 from mini_jira.users.use_cases import LoginUserUseCase
 
 ORIGIN = "https://frontend.example.com"

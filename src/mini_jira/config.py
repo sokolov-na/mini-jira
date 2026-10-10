@@ -1,13 +1,14 @@
 from typing import Literal, Self
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     database_url: str
 
-    jwt_secret_key: str
+    jwt_secret_key: str = Field(min_length=32)
 
     cors_origins: list[str] = []
 
@@ -37,7 +38,10 @@ class Settings(BaseSettings):
     @classmethod
     def validate_cors_origins(cls, origins: list[str]) -> list[str]:
         if any("*" in origin for origin in origins):
-            raise ValueError("CORS origins must not contain wildcards")
+            raise PydanticCustomError(
+                "cors_origin_wildcard",
+                "CORS origins must not contain wildcards",
+            )
         return origins
 
     @field_validator("refresh_cookie_domain")
@@ -51,7 +55,10 @@ class Settings(BaseSettings):
             self.refresh_cookie_samesite == "none"
             and not self.refresh_cookie_secure
         ):
-            raise ValueError("SameSite=none requires a Secure refresh cookie")
+            raise PydanticCustomError(
+                "refresh_cookie_secure_required",
+                "SameSite=none requires a Secure refresh cookie",
+            )
         return self
 
 

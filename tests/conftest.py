@@ -1,5 +1,8 @@
+import asyncio
 import importlib
 import os
+import sys
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock
@@ -9,6 +12,18 @@ import pytest
 import structlog
 
 pytest_plugins = ["tests.fixtures.database"]
+
+
+def pytest_asyncio_loop_factories() -> dict[
+    str, Callable[[], asyncio.AbstractEventLoop]
+]:
+    factory = (
+        asyncio.SelectorEventLoop
+        if sys.platform == "win32"
+        else asyncio.new_event_loop
+    )
+    return {"database_compatible": factory}
+
 
 os.environ.update(
     DATABASE_URL="postgresql+psycopg://invalid:invalid@127.0.0.1:1/unused_test",

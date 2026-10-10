@@ -6,9 +6,48 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_jira.database.models import RefreshToken, User
-from tests.factories import RegisteredUser, signed_token
+from tests.factories import RegisteredUser, registration_data, signed_token
 
 pytestmark = [pytest.mark.e2e, pytest.mark.postgres]
+
+
+async def test_username_length_limit_registration_login_and_update(
+    client: httpx.AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    data = registration_data() | {"username": "u" * 32}
+    rejected = await client.post(
+        "/auth/register", json=data | {"username": "u" * 33}
+    )
+    assert rejected.status_code == 422
+    assert await db_session.scalar(select(func.count()).select_from(User)) == 0
+    registered = await client.post("/auth/register", json=data)
+    assert registered.status_code == 201
+    login = await client.post(
+        "/auth/login",
+        json={"login": data["username"], "password": data["password"]},
+    )
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    updated = await client.patch(
+        "/users/me", headers=headers, json={"username": "v" * 32}
+    )
+    assert updated.status_code == 200
+    rejected_update = await client.patch(
+        "/users/me", headers=headers, json={"username": "v" * 33}
+    )
+    assert rejected_update.status_code == 422
+    assert rejected_update.json()["detail"] == [
+        {
+            "type": "string_too_long",
+            "loc": ["body", "username"],
+            "msg": "String should have at most 32 characters",
+        }
+    ]
+    assert "v" * 33 not in rejected_update.text
+    db_session.expire_all()
+    user = await db_session.scalar(select(User))
+    assert user is not None and user.username == "v" * 32
 
 
 async def test_profile_is_own_and_persisted_update(

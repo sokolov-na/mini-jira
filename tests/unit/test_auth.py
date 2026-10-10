@@ -81,14 +81,8 @@ def test_api_authentication_rejects_unsafe_bearer(kind: str) -> None:
     assert token not in response.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Default 422 echoes password input; production fix requires approval"
-    ),
-)
 def test_validation_response_does_not_echo_password() -> None:
-    secret = "sensitivepassword123"
+    secret = "private"
     response = TestClient(app).post(
         "/auth/register",
         json={
@@ -99,3 +93,7 @@ def test_validation_response_does_not_echo_password() -> None:
     )
     assert response.status_code == 422
     assert secret not in response.text
+    assert all(
+        set(error) == {"type", "loc", "msg"}
+        for error in response.json()["detail"]
+    )

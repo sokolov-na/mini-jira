@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
@@ -126,13 +127,36 @@ async def unhandled_exception_handler(
     )
 
 
-app = RequestLoggingMiddleware(
-    CORSMiddleware(
-        api,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["X-Request-ID"],
+@api.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    errors: list[dict[str, object]] = []
+    for error in exc.errors():
+        email_error = (
+            error["loc"][-1:] == ("email",) and error["type"] != "missing"
+        )
+        errors.append(
+            {
+                "type": "email_invalid" if email_error else error["type"],
+                "loc": error["loc"],
+                "msg": "Email address is invalid"
+                if email_error
+                else error["msg"],
+            }
+        )
+    return JSONResponse(
+        status_code=HTTPStatus.UNPROCESSABLE_CONTENT,
+        content={"detail": errors},
     )
+
+
+app = CORSMiddleware(
+    RequestLoggingMiddleware(api),
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )

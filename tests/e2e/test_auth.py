@@ -84,8 +84,8 @@ async def test_registration_conflict_is_atomic(
         {"username": "invalid_name"},
         {"email": "not-an-email"},
         {"password": "short"},
-        {"password": "lowercase123"},
-        {"password": "PasswordOnly"},
+        {"password": "1234567"},
+        {"password": ""},
     ],
 )
 async def test_registration_validation_no_partial_data(
