@@ -8,6 +8,7 @@ user registration, authentication, and account management.
 - Registration and login by username or email.
 - JWT access tokens and refresh tokens with rotation and revocation.
 - Reading, updating, and deleting the authenticated user's profile.
+- Authenticated password changes and one-time password reset links via Resend.
 - Password hashing, input validation, and conflict handling.
 - Structured stdout logs and request IDs.
 - Isolated tests and PostgreSQL integration/API E2E test infrastructure.
@@ -28,14 +29,15 @@ Run the following commands from the `api` repository directory.
 ## Configuration
 
 Copy [.env.example](.env.example) to `.env`. Replace the database credentials
-and JWT secret with your own values; never commit `.env` or use example secrets.
+and JWT secret, configure the Resend key and sender and the trusted frontend
+reset URL; never commit `.env` or use example secrets.
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-`DATABASE_URL` and `JWT_SECRET_KEY` are required. CORS origins, refresh-cookie
-settings, and logging are configurable. For local HTTP, set
+Database, JWT and reset-email settings are required. CORS origins, refresh-cookie
+settings, email subject and logging are configurable. For local HTTP, set
 `REFRESH_COOKIE_SECURE=false`; keep it enabled for public HTTPS.
 An empty CORS allowlist is valid for an API without a browser frontend.
 See [configuration](docs/configuration.md) for all variables.
@@ -62,9 +64,16 @@ are available at `/docs`, with the schema at `/openapi.json`.
 | POST | `/auth/login` | Sign in and issue tokens | None |
 | POST | `/auth/refresh` | Rotate the refresh token | Refresh cookie |
 | POST | `/auth/logout` | Revoke refresh token and clear cookie | Cookie if present |
+| PATCH | `/auth/password/update` | Change password and replace refresh sessions with a new current session | Bearer access token |
+| POST | `/auth/password/reset` | Request a reset email; returns 202 with JSON null | None |
+| POST | `/auth/password/reset/confirm` | Consume a reset link and revoke refresh sessions without signing in | Reset token in body |
 | GET | `/users/me` | Read own profile | Bearer access token |
 | PATCH | `/users/me` | Update own username/email | Bearer access token |
 | DELETE | `/users/me` | Delete own account; returns 204 | Bearer access token |
+
+Token endpoints return `access_token` and `token_type: "bearer"`; refresh tokens
+are delivered through HttpOnly cookies. Logout and reset confirmation keep their
+200 response with JSON `null`; account deletion returns 204 without a body.
 
 Usernames accept 3–32 Latin letters, digits and separating hyphens and are
 lowercased. Passwords require at least eight characters, without mandatory

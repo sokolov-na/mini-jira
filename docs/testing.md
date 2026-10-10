@@ -67,9 +67,11 @@ schemas; it does not drop the database.
 
 ## Limitations
 
-- A database test shares one connection and cannot run concurrent HTTP
-  transactions. Logging concurrency tests are isolated from PostgreSQL.
+- Repository/API fixtures share one connection and cannot run concurrent HTTP
+  transactions. PostgreSQL concurrency tests use independent sessions and
+  connections; logging concurrency tests are isolated from PostgreSQL.
 - E2E tests use ASGITransport, not a network server.
-- Email DNS resolution is replaced or prohibited for deterministic tests.
+- Resend delivery is mocked; tests never send real email. Email DNS resolution
+  is replaced or prohibited for deterministic tests.
 - On Windows, the asyncio fixture uses SelectorEventLoop because Psycopg async
   connections do not support ProactorEventLoop.

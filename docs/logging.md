@@ -28,7 +28,11 @@ can read `X-Request-ID` for allowed origins.
 - `auth.refresh.revocation_requested`: revocation requested inside a transaction
   that may still roll back.
 - `auth.register.succeeded`, `auth.refresh.rotated`, `auth.logout.succeeded`,
-  `users.profile.updated`, `users.profile.deleted`: recorded after commit.
+  `users.profile.updated`, `users.profile.deleted`, `users.password.updated`: recorded after commit.
+- `auth.password_update.failed` / `auth.password_reset.failed`: expected refusals
+  with limited reason codes.
+- `auth.password_reset.delivery_failed`: email preparation/provider failure; logs
+  the component and exception type without recipient, link or provider message.
 - `auth.token.rejected` / `users.operation.rejected`: expected domain refusals.
 
 Application events use technical IDs and reason codes rather than request bodies,
@@ -46,7 +50,8 @@ exception messages, source lines, locals, chained exceptions and SQL parameters.
 Clients receive `500` with `{"detail": "Internal server error"}`. The HTTP event
 records the status separately without repeating the traceback.
 
-Expected domain errors keep their 401, 404 or 409 status; validation returns 422.
+Expected domain errors keep their 401, 404 or 409 status; an incorrect current
+password returns 400. Validation returns 422.
 Known database uniqueness errors are translated to domain conflicts.
 
 Starlette re-raises unhandled exceptions after sending its 500 response. Uvicorn

@@ -12,6 +12,8 @@ No official release has been published; current functionality is unreleased.
 - JWT access and refresh tokens with expiration, token-type checks, unique token
   IDs, hashed refresh-token persistence, rotation, and revocation.
 - Authenticated profile read, username/email update, and account deletion.
+- Password changes that replace refresh sessions atomically, and one-time
+  password reset links with configurable Resend delivery and a plain-text template.
 - PostgreSQL persistence with async SQLAlchemy and Alembic migrations.
 - Health endpoint, interactive API documentation, and OpenAPI schema.
 - Environment-backed database, JWT, CORS, refresh-cookie, and logging settings
@@ -54,3 +56,7 @@ No official release has been published; current functionality is unreleased.
 - Validation responses expose only `type`, `loc` and `msg`, with a stable
   `email_invalid` code and fixed message for invalid email values.
 - JWT signing secrets must contain at least 32 characters.
+- User-row locking serializes refresh rotation, password changes and reset-token
+  issuance/consumption. Profile and password updates write only their own fields.
+- Reset requests return the same accepted response for known and unknown users
+  and delivery failures; reset links use a configured trusted HTTPS frontend URL.
